@@ -35,7 +35,7 @@ class SimpleTrainer2d:
         self.H, self.W = self.gt_image.shape[2], self.gt_image.shape[3]
         self.iterations = iterations
         self.save_imgs = args.save_imgs
-        self.log_dir = Path(f"./checkpoints/{args.data_name}/{model_name}_{args.iterations}_{num_points}/{self.image_name}")
+        self.log_dir = Path(f"/ssd/huanxiong/gsimage/checkpoints_v2/{args.data_name}/{model_name}_{args.iterations}_{num_points}/{self.image_name}")
         
         if model_name == "GaussianImage_Cholesky":
             from gaussianimage_cholesky import GaussianImage_Cholesky
@@ -51,6 +51,26 @@ class SimpleTrainer2d:
             from gaussiansplatting_3d import Gaussian3D
             self.gaussian_model = Gaussian3D(loss_type="Fusion2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
                 device=self.device, sh_degree=args.sh_degree, lr=args.lr).to(self.device)
+
+        elif model_name == "GaussianImage_Cholesky_v1":
+            from gaussianimage_cholesky_v1 import GaussianImage_Cholesky_v1
+            self.gaussian_model = GaussianImage_Cholesky_v1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
+            
+        elif model_name == "GaussianImage_Cholesky_v2_1":
+            from gaussianimage_cholesky_v2_1 import GaussianImage_Cholesky_v2_1
+            self.gaussian_model = GaussianImage_Cholesky_v2_1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
+        
+        elif model_name == "GaussianImage_Cholesky_v2_2":
+            from gaussianimage_cholesky_v2_2 import GaussianImage_Cholesky_v2_2
+            self.gaussian_model = GaussianImage_Cholesky_v2_2(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+                device=self.device, lr=args.lr, quantize=False).to(self.device)
+            
+        elif model_name == "GaussianImage_Cholesky_v2_3":
+            from gaussianimage_cholesky_v2_3 import GaussianImage_Cholesky_v2_3
+            self.gaussian_model = GaussianImage_Cholesky_v2_3(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
 
         self.logwriter = LogWriter(self.log_dir)
 
@@ -161,7 +181,7 @@ def main(argv):
         torch.backends.cudnn.benchmark = False
         np.random.seed(args.seed)
 
-    logwriter = LogWriter(Path(f"./checkpoints/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"))
+    logwriter = LogWriter(Path(f"/ssd/huanxiong/gsimage/checkpoints_v2/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"))
     psnrs, ms_ssims, training_times, eval_times, eval_fpses = [], [], [], [], []
     image_h, image_w = 0, 0
     if args.data_name == "kodak":

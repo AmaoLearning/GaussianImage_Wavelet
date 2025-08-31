@@ -103,6 +103,9 @@ sh ./scripts/gaussianimage_cholesky/div2k_comp.sh /path/to/your/dataset
 sh ./scripts/gaussianimage_rs/div2k_comp.sh /path/to/your/dataset
 ```
 
+### version
+v2_2 represents GaussianImage + Wavelet Rasterization
+
 ## Acknowledgments
 
 Our code was developed based on [gsplat](https://github.com/nerfstudio-project/gsplat). This is a concise and easily extensible Gaussian Splatting library.

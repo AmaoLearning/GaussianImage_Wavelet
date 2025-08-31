@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/local/cuda/include",
+                "/home/ubuntu/miniconda3/envs/gsimage/lib/python3.10/site-packages/torch/include",
+                "/home/ubuntu/miniconda3/envs/gsimage/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+                "/home/ubuntu/miniconda3/envs/gsimage/lib/python3.10/site-packages/torch/include/torch/csrc"
+            ],
+            "defines": [
+                "__CUDACC__"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

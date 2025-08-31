@@ -1,5 +1,5 @@
 from gsplat.project_gaussians_2d import project_gaussians_2d
-from gsplat.rasterize_sum import rasterize_gaussians_sum
+from gsplat.wavelet_rasterize_sum import wavelet_rasterize_gaussians_sum
 from utils import *
 import torch
 import torch.nn as nn
@@ -8,7 +8,7 @@ import math
 from quantize import *
 from optimizer import Adan
 
-class GaussianImage_Cholesky(nn.Module):
+class GaussianImage_Cholesky_v2_2(nn.Module):
     def __init__(self, loss_type="L2", **kwargs):
         super().__init__()
         self.loss_type = loss_type
@@ -19,13 +19,14 @@ class GaussianImage_Cholesky(nn.Module):
             (self.W + self.BLOCK_W - 1) // self.BLOCK_W,
             (self.H + self.BLOCK_H - 1) // self.BLOCK_H,
             1,
-        ) # 
+        )
         self.device = kwargs["device"]
 
         self._xyz = nn.Parameter(torch.atanh(2 * (torch.rand(self.init_num_points, 2) - 0.5)))
         self._cholesky = nn.Parameter(torch.rand(self.init_num_points, 3))
         self.register_buffer('_opacity', torch.ones((self.init_num_points, 1)))
         self._features_dc = nn.Parameter(torch.rand(self.init_num_points, 3))
+        self._frequencies = nn.Parameter(torch.rand(self.init_num_points, 2))
         self.last_size = (self.H, self.W)
         self.quantize = kwargs["quantize"]
         self.register_buffer('background', torch.ones(3))
@@ -63,11 +64,15 @@ class GaussianImage_Cholesky(nn.Module):
     @property
     def get_cholesky_elements(self):
         return self._cholesky+self.cholesky_bound
+    
+    @property
+    def get_frequencies(self):
+        return self._frequencies
 
     def forward(self):
         self.xys, depths, self.radii, conics, num_tiles_hit = project_gaussians_2d(self.get_xyz, self.get_cholesky_elements, self.H, self.W, self.tile_bounds)
-        out_img = rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
-                self.get_features, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
+        out_img = wavelet_rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
+                self.get_features, self.get_frequencies, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
         out_img = torch.clamp(out_img, 0, 1) #[H, W, 3]
         out_img = out_img.view(-1, self.H, self.W, 3).permute(0, 3, 1, 2).contiguous()
         return {"render": out_img}
@@ -94,8 +99,8 @@ class GaussianImage_Cholesky(nn.Module):
         l_vqr, r_bit = 0, 0
         colors, l_vqc, c_bit = self.features_dc_quantizer(self.get_features)
         self.xys, depths, self.radii, conics, num_tiles_hit = project_gaussians_2d(means, cholesky_elements, self.H, self.W, self.tile_bounds)
-        out_img = rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
-                colors, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
+        out_img = wavelet_rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
+                colors, self.get_frequencies, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
         out_img = torch.clamp(out_img, 0, 1)
         out_img = out_img.view(-1, self.H, self.W, 3).permute(0, 3, 1, 2).contiguous()
         vq_loss = l_vqm + l_vqs + l_vqr + l_vqc
@@ -128,8 +133,8 @@ class GaussianImage_Cholesky(nn.Module):
         cholesky_elements = cholesky_elements + self.cholesky_bound
         colors = self.features_dc_quantizer.decompress(feature_dc_index)
         self.xys, depths, self.radii, conics, num_tiles_hit = project_gaussians_2d(means, cholesky_elements, self.H, self.W, self.tile_bounds)
-        out_img = rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
-                colors, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
+        out_img = wavelet_rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
+                colors, self.get_frequencies, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
         out_img = torch.clamp(out_img, 0, 1)
         out_img = out_img.view(-1, self.H, self.W, 3).permute(0, 3, 1, 2).contiguous()
         return {"render":out_img}
@@ -196,8 +201,8 @@ class GaussianImage_Cholesky(nn.Module):
         cholesky_elements = cholesky_elements + self.cholesky_bound
         colors = self.features_dc_quantizer.decompress(feature_dc_index)
         self.xys, depths, self.radii, conics, num_tiles_hit = project_gaussians_2d(means, cholesky_elements, self.H, self.W, self.tile_bounds)
-        out_img = rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
-                colors, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
+        out_img = wavelet_rasterize_gaussians_sum(self.xys, depths, self.radii, conics, num_tiles_hit,
+                colors, self.get_frequencies, self._opacity, self.H, self.W, self.BLOCK_H, self.BLOCK_W, background=self.background, return_alpha=False)
         out_img = torch.clamp(out_img, 0, 1)
         out_img = out_img.view(-1, self.H, self.W, 3).permute(0, 3, 1, 2).contiguous()
         return {"render":out_img}

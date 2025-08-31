@@ -86,6 +86,112 @@ class UniformQuantizer(nn.Module):
     def decompress(self, x):
         return x * self.scale + self.beta
 
+class SoftUniformQuantizer(nn.Module):
+    def __init__(self, signed=False, bits_list=[4, 6, 8], learned=False, num_channels=1, entropy_type="none", weight=0.001):
+        """
+        bits_list: 候选比特数组，例如 [4, 6, 8]
+        """
+        super().__init__()
+        self.signed = signed
+        self.bits_list = bits_list
+        self.learned = learned
+        self.entropy_type = entropy_type
+        self.weight = weight
+
+        # 为每个候选比特计算 qmin, qmax
+        self.qmin = []
+        self.qmax = []
+        for bits in bits_list:
+            if signed:
+                self.qmin.append(-2**(bits - 1))
+                self.qmax.append(2**(bits - 1) - 1)
+            else:
+                self.qmin.append(0)
+                self.qmax.append(2**bits - 1)
+
+        # 如果 scale 和 beta 可学习，则为每个候选比特都分配一组
+        if learned:
+            self.scale = nn.Parameter(torch.ones(len(bits_list), num_channels))
+            self.beta = nn.Parameter(torch.zeros(len(bits_list), num_channels))
+        else:
+            self.register_buffer("scale", torch.ones(len(bits_list), num_channels))
+            self.register_buffer("beta", torch.zeros(len(bits_list), num_channels))
+
+        # Softmax 权重参数，每个候选比特一个权重
+        self.bits_logits = nn.Parameter(torch.zeros(len(bits_list)))
+
+    def _init_data(self, tensor):
+        """
+        根据输入数据范围初始化 scale 和 beta
+        """
+        t_min, t_max = tensor.min(dim=0)[0], tensor.max(dim=0)[0]
+        for i, bits in enumerate(self.bits_list):
+            qmin, qmax = self.qmin[i], self.qmax[i]
+            scale = (t_max - t_min) / max((qmax - qmin), 1e-8)
+            self.scale.data[i] = scale
+            self.beta.data[i] = t_min
+
+    def forward(self, x):
+        """
+        返回加权融合后的量化结果
+        """
+        weights = F.softmax(self.bits_logits, dim=0)  # [num_bits]
+        out = 0
+        total_bits = 0
+        entropy_loss = 0
+
+        for i, bits in enumerate(self.bits_list):
+            qmin, qmax = self.qmin[i], self.qmax[i]
+            scale = self.scale[i]
+            beta = self.beta[i]
+
+            # 计算 code
+            code = ((x - beta) / scale).clamp(qmin, qmax)
+            quant = ste(code)  # 用已有的 STE 函数
+            dequant = quant * scale + beta
+
+            # 加权融合
+            out = out + weights[i] * dequant
+
+            # Rate 部分
+            if not self.training:
+                bits_est = self.size(quant, i)
+                total_bits += weights[i].item() * bits_est
+
+        return out, entropy_loss * self.weight, total_bits
+
+    def size(self, quant, i):
+        """
+        用于估算压缩比特数
+        """
+        compressed, histogram_table, unique = compress_matrix_flatten_categorical(quant.int().flatten().tolist())
+        index_bits = (
+            get_np_size(compressed) * 8
+            + get_np_size(histogram_table) * 8
+            + get_np_size(unique) * 8
+        )
+        index_bits += self.scale[i].numel() * torch.finfo(self.scale.dtype).bits
+        index_bits += self.beta[i].numel() * torch.finfo(self.beta.dtype).bits
+        return index_bits
+
+    def compress(self, x):
+        """
+        推理时取 softmax 最大的比特
+        """
+        best_idx = torch.argmax(self.bits_logits).item()
+        qmin, qmax = self.qmin[best_idx], self.qmax[best_idx]
+        scale, beta = self.scale[best_idx], self.beta[best_idx]
+        code = ((x - beta) / scale).clamp(qmin, qmax).round()
+        return code, code * scale + beta
+
+    def decompress(self, code):
+        """
+        与 compress 配套
+        """
+        best_idx = torch.argmax(self.bits_logits).item()
+        scale, beta = self.scale[best_idx], self.beta[best_idx]
+        return code * scale + beta
+
 class VectorQuantizer(nn.Module):
     def __init__(self, num_quantizers=1, codebook_dim=1, codebook_size=64, kmeans_iters=10, vector_type="vector"):
         super().__init__()
