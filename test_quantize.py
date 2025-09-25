@@ -157,7 +157,7 @@ def main(argv):
         torch.backends.cudnn.benchmark = False
         np.random.seed(args.seed)
 
-    logwriter = LogWriter(Path(f"/root/Gaussian_Wavelet/outputs/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"), train=False)
+    logwriter = LogWriter(Path(f"/root/GaussianImage_Wavelet/outputs/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"), train=False)
     psnrs, ms_ssims, eval_times, eval_fpses, bpps = [], [], [], [], []
     position_bpps, cholesky_bpps, feature_dc_bpps = [], [], []
     image_h, image_w = 0, 0

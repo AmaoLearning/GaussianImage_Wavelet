@@ -186,7 +186,7 @@ def main(argv):
         torch.backends.cudnn.benchmark = False
         np.random.seed(args.seed)
 
-    logwriter = LogWriter(Path(f"/root/Gaussian_Wavelet/outputs/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"))
+    logwriter = LogWriter(Path(f"/root/GaussianImage_Wavelet/outputs/{args.data_name}/{args.model_name}_{args.iterations}_{args.num_points}"))
     psnrs, ms_ssims, training_times, eval_times, eval_fpses, bpps = [], [], [], [], [], []
     best_psnrs, best_ms_ssims, best_bpps = [], [], []
     image_h, image_w = 0, 0
