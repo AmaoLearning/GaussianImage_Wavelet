@@ -133,6 +133,22 @@ __global__ void rasterize_forward_sum(
     const float3& __restrict__ background
 );
 
+__global__ void wavelet_rasterize_forward_sum(
+    const dim3 tile_bounds,
+    const dim3 img_size,
+    const int32_t* __restrict__ gaussian_ids_sorted,
+    const int2* __restrict__ tile_bins,
+    const float2* __restrict__ xys,
+    const float3* __restrict__ conics,
+    const float3* __restrict__ colors,
+    const float2* __restrict__ frequencies,
+    const float* __restrict__ opacities,
+    float* __restrict__ final_Ts,
+    int* __restrict__ final_index,
+    float3* __restrict__ out_img,
+    const float3& __restrict__ background
+);
+
 __global__ void rasterize_forward_sum_general(
     const dim3 tile_bounds,
     const dim3 img_size,

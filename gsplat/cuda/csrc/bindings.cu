@@ -468,6 +468,81 @@ std::tuple<
     return std::make_tuple(out_img, final_Ts, final_idx);
 }
 
+
+std::tuple<
+    torch::Tensor,
+    torch::Tensor,
+    torch::Tensor
+> wavelet_rasterize_forward_sum_tensor(
+    const std::tuple<int, int, int> tile_bounds,
+    const std::tuple<int, int, int> block,
+    const std::tuple<int, int, int> img_size,
+    const torch::Tensor &gaussian_ids_sorted,
+    const torch::Tensor &tile_bins,
+    const torch::Tensor &xys,
+    const torch::Tensor &conics,
+    const torch::Tensor &colors,
+    const torch::Tensor &frequencies,
+    const torch::Tensor &opacities,
+    const torch::Tensor &background
+) {
+    CHECK_INPUT(gaussian_ids_sorted);
+    CHECK_INPUT(tile_bins);
+    CHECK_INPUT(xys);
+    CHECK_INPUT(conics);
+    CHECK_INPUT(colors);
+    CHECK_INPUT(frequencies);
+    CHECK_INPUT(opacities);
+    CHECK_INPUT(background);
+
+    dim3 tile_bounds_dim3;
+    tile_bounds_dim3.x = std::get<0>(tile_bounds);
+    tile_bounds_dim3.y = std::get<1>(tile_bounds);
+    tile_bounds_dim3.z = std::get<2>(tile_bounds);
+
+    dim3 block_dim3;
+    block_dim3.x = std::get<0>(block);
+    block_dim3.y = std::get<1>(block);
+    block_dim3.z = std::get<2>(block);
+
+    dim3 img_size_dim3;
+    img_size_dim3.x = std::get<0>(img_size);
+    img_size_dim3.y = std::get<1>(img_size);
+    img_size_dim3.z = std::get<2>(img_size);
+
+    const int channels = colors.size(1);
+    const int img_width = img_size_dim3.x;
+    const int img_height = img_size_dim3.y;
+
+    torch::Tensor out_img = torch::zeros(
+        {img_height, img_width, channels}, xys.options().dtype(torch::kFloat32)
+    );
+    torch::Tensor final_Ts = torch::zeros(
+        {img_height, img_width}, xys.options().dtype(torch::kFloat32)
+    );
+    torch::Tensor final_idx = torch::zeros(
+        {img_height, img_width}, xys.options().dtype(torch::kInt32)
+    );
+
+    wavelet_rasterize_forward_sum<<<tile_bounds_dim3, block_dim3>>>(
+        tile_bounds_dim3,
+        img_size_dim3,
+        gaussian_ids_sorted.contiguous().data_ptr<int32_t>(),
+        (int2 *)tile_bins.contiguous().data_ptr<int>(),
+        (float2 *)xys.contiguous().data_ptr<float>(),
+        (float3 *)conics.contiguous().data_ptr<float>(),
+        (float3 *)colors.contiguous().data_ptr<float>(),
+        (float2 *)frequencies.contiguous().data_ptr<float>(),
+        opacities.contiguous().data_ptr<float>(),
+        final_Ts.contiguous().data_ptr<float>(),
+        final_idx.contiguous().data_ptr<int>(),
+        (float3 *)out_img.contiguous().data_ptr<float>(),
+        *(float3 *)background.contiguous().data_ptr<float>()
+    );
+
+    return std::make_tuple(out_img, final_Ts, final_idx);
+}
+
 std::tuple<
     torch::Tensor,
     torch::Tensor,
@@ -776,6 +851,97 @@ std::
     );
 
     return std::make_tuple(v_xy, v_conic, v_colors, v_opacity);
+}
+
+std::
+    tuple<
+        torch::Tensor, // dL_dxy
+        torch::Tensor, // dL_dconic
+        torch::Tensor, // dL_dcolors
+        torch::Tensor, // dL_dfreqs
+        torch::Tensor  // dL_dopacity
+        >
+    wavelet_rasterize_backward_sum_tensor(
+        const unsigned img_height,
+        const unsigned img_width,
+        const unsigned BLOCK_H,
+        const unsigned BLOCK_W,
+        const torch::Tensor &gaussians_ids_sorted,
+        const torch::Tensor &tile_bins,
+        const torch::Tensor &xys,
+        const torch::Tensor &conics,
+        const torch::Tensor &colors,
+        const torch::Tensor &frequencies, // freqs
+        const torch::Tensor &opacities,
+        const torch::Tensor &background,
+        const torch::Tensor &final_Ts,
+        const torch::Tensor &final_idx,
+        const torch::Tensor &v_output, // dL_dout_color
+        const torch::Tensor &v_output_alpha
+    ){
+
+    CHECK_INPUT(xys);
+    CHECK_INPUT(colors);
+    CHECK_INPUT(frequencies);
+
+    if (xys.ndimension() != 2 || xys.size(1) != 2) {
+        AT_ERROR("xys must have dimensions (num_points, 2)");
+    }
+
+    if (colors.ndimension() != 2 || colors.size(1) != 3) {
+        AT_ERROR("colors must have 2 dimensions");
+    }
+
+    if (frequencies.ndimension() != 2 || frequencies.size(1) != 2) {
+        AT_ERROR("freqs must have 2 dimensions (num_points, 2)");
+    }
+
+    const int num_points = xys.size(0);
+    const dim3 tile_bounds = {
+        (img_width + BLOCK_W - 1) / BLOCK_W,
+        (img_height + BLOCK_H - 1) / BLOCK_H,
+        1
+    };
+    const dim3 block(BLOCK_W, BLOCK_H, 1);
+    const dim3 img_size = {img_width, img_height, 1};
+    const int channels = colors.size(1);
+
+    torch::Tensor v_xy = torch::zeros({num_points, 2}, xys.options());
+    torch::Tensor v_conic = torch::zeros({num_points, 3}, xys.options());
+    torch::Tensor v_colors =
+        torch::zeros({num_points, channels}, xys.options());
+    torch::Tensor v_freqs = torch::zeros({num_points, 2}, xys.options()); // dL/dfreqs
+    torch::Tensor v_opacity = torch::zeros({num_points, 1}, xys.options());
+
+    wavelet_rasterize_backward_sum_kernel<<<tile_bounds, block>>>(
+        tile_bounds,
+        img_size,
+        gaussians_ids_sorted.contiguous().data_ptr<int>(),
+        (int2 *)tile_bins.contiguous().data_ptr<int>(),
+        (float2 *)xys.contiguous().data_ptr<float>(),
+        (float3 *)conics.contiguous().data_ptr<float>(),
+        (float3 *)colors.contiguous().data_ptr<float>(),
+        (float2 *)frequencies.contiguous().data_ptr<float>(),  //frequencies pointer
+        opacities.contiguous().data_ptr<float>(),
+        *(float3 *)background.contiguous().data_ptr<float>(),
+        final_Ts.contiguous().data_ptr<float>(),
+        final_idx.contiguous().data_ptr<int>(),
+        (float3 *)v_output.contiguous().data_ptr<float>(),
+        v_output_alpha.contiguous().data_ptr<float>(),
+        (float2 *)v_xy.contiguous().data_ptr<float>(),
+        (float3 *)v_conic.contiguous().data_ptr<float>(),
+        (float3 *)v_colors.contiguous().data_ptr<float>(),
+        (float2 *)v_freqs.contiguous().data_ptr<float>(), //v_f output pointer
+        v_opacity.contiguous().data_ptr<float>()
+    );
+
+    // optional: check for CUDA errors
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        AT_ERROR("wavelet_rasterize_backward_sum_kernel launch failed: ", cudaGetErrorString(err));
+    }
+
+    return std::make_tuple(v_xy, v_conic, v_colors, v_freqs, v_opacity);
 }
 
 std::tuple<

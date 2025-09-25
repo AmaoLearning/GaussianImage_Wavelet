@@ -5,6 +5,7 @@ from .rasterize import rasterize_gaussians
 from .project_gaussians_2d import project_gaussians_2d
 from .project_gaussians_2d_scale_rot import project_gaussians_2d_scale_rot
 from .rasterize_sum import rasterize_gaussians_sum
+from .wavelet_rasterize_sum import wavelet_rasterize_gaussians_sum
 from .utils import (
     map_gaussian_to_intersects,
     bin_and_sort_gaussians,
@@ -24,6 +25,7 @@ __all__ = [
     "project_gaussians_2d_scale_rot",
     "rasterize_gaussians",
     "rasterize_gaussians_sum",
+    "wavelet_rasterize_gaussians_sum",
     "spherical_harmonics",
     # utils
     "bin_and_sort_gaussians",
@@ -37,6 +39,7 @@ __all__ = [
     "ProjectGaussians2dScaleRot",
     "RasterizeGaussians",
     "RasterizeGaussiansSum",
+    "WaveletRasterizeGaussiansSum",
     "BinAndSortGaussians",
     "ComputeCumulativeIntersects",
     "ComputeCov2dBounds",
@@ -176,10 +179,23 @@ class RasterizeGaussiansSum(torch.autograd.Function):
     @staticmethod
     def forward(ctx, *args, **kwargs):
         warnings.warn(
-            "RasterizeGaussiansSum is deprecated, use rasterize_gaussians instead",
+            "RasterizeGaussiansSum is deprecated, use rasterize_gaussians_sum instead",
             DeprecationWarning,
         )
         return rasterize_gaussians_sum(*args, **kwargs)
+
+    @staticmethod
+    def backward(ctx: Any, *grad_outputs: Any) -> Any:
+        raise NotImplementedError
+    
+class WaveletRasterizeGaussiansSum(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, *args, **kwargs):
+        warnings.warn(
+            "WaveletRasterizeGaussiansSum is deprecated, use wavelet_rasterize_gaussians_sum instead",
+            DeprecationWarning,
+        )
+        return wavelet_rasterize_gaussians_sum(*args, **kwargs)
 
     @staticmethod
     def backward(ctx: Any, *grad_outputs: Any) -> Any:
