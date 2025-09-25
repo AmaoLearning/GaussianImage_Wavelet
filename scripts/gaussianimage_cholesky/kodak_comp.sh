@@ -1,0 +1,23 @@
+#!/bin/bash
+
+data_path=$1
+
+if [ -z "$data_path" ]; then
+    echo "Error: No data_path provided."
+    echo "Usage: $0 <data_path>"
+    exit 1
+fi
+
+for num_points in 800 1000 3000 5000 7000 9000
+do
+    CUDA_VISIBLE_DEVICES=1 python train_quantize.py -d $data_path \
+    --data_name kodak --model_name GaussianImage_Cholesky_v2_1 --num_points $num_points --iterations 50000 \
+    --model_path /ssd/huanxiong/gsimage/checkpoints_v2/kodak/GaussianImage_Cholesky_v2_1_50000_$num_points
+done
+
+for num_points in 800 1000 3000 5000 7000 9000
+do
+    CUDA_VISIBLE_DEVICES=1 python test_quantize.py -d $data_path \
+    --data_name kodak --model_name GaussianImage_Cholesky_v2_1 --num_points $num_points --iterations 50000 \
+    --model_path /ssd/huanxiong/gsimage/checkpoints_quant_v2/kodak/GaussianImage_Cholesky_v2_1_50000_$num_points
+done
