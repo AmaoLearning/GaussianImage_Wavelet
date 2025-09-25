@@ -52,26 +52,31 @@ class SimpleTrainer2d:
             self.gaussian_model = Gaussian3D(loss_type="Fusion2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
                 device=self.device, sh_degree=args.sh_degree, lr=args.lr).to(self.device)
 
-        elif model_name == "GaussianImage_Cholesky_v1":
-            from gaussianimage_cholesky_v1 import GaussianImage_Cholesky_v1
-            self.gaussian_model = GaussianImage_Cholesky_v1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
-                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
+        # elif model_name == "GaussianImage_Cholesky_v1":
+        #     from gaussianimage_cholesky_v1 import GaussianImage_Cholesky_v1
+        #     self.gaussian_model = GaussianImage_Cholesky_v1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+        #         device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
             
-        elif model_name == "GaussianImage_Cholesky_v2_1":
-            from gaussianimage_cholesky_v2_1 import GaussianImage_Cholesky_v2_1
-            self.gaussian_model = GaussianImage_Cholesky_v2_1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
-                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
+        # elif model_name == "GaussianImage_Cholesky_v2_1":
+        #     from gaussianimage_cholesky_v2_1 import GaussianImage_Cholesky_v2_1
+        #     self.gaussian_model = GaussianImage_Cholesky_v2_1(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+        #         device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
         
         elif model_name == "GaussianImage_Cholesky_v2_2":
             from gaussianimage_cholesky_v2_2 import GaussianImage_Cholesky_v2_2
             self.gaussian_model = GaussianImage_Cholesky_v2_2(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
                 device=self.device, lr=args.lr, quantize=False).to(self.device)
             
-        elif model_name == "GaussianImage_Cholesky_v2_3":
-            from gaussianimage_cholesky_v2_3 import GaussianImage_Cholesky_v2_3
-            self.gaussian_model = GaussianImage_Cholesky_v2_3(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
-                device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
+        # elif model_name == "GaussianImage_Cholesky_v2_3":
+        #     from gaussianimage_cholesky_v2_3 import GaussianImage_Cholesky_v2_3
+        #     self.gaussian_model = GaussianImage_Cholesky_v2_3(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+        #         device=self.device, lr=args.lr, quantize=False, image_path=image_path).to(self.device)
 
+        elif model_name == "GaussianImage_Cholesky_Wavelet":
+            from gaussianimage_cholesky_wavelet import GaussianImage_Cholesky_Wavelet
+            self.gaussian_model = GaussianImage_Cholesky_Wavelet(loss_type="L2", opt_type="adan", num_points=self.num_points, H=self.H, W=self.W, BLOCK_H=BLOCK_H, BLOCK_W=BLOCK_W, 
+                device=self.device, lr=args.lr, quantize=False).to(self.device)
+        
         self.logwriter = LogWriter(self.log_dir)
 
         if model_path is not None:
